@@ -6,7 +6,7 @@ process COMBINE_DIVERSITY_METRICS {
     tuple val(type), val(sample_names), path(csv_files, stageAs: 'input_?.csv')
 
     output:
-    path "combined_${type}_diversity_metrics.csv", emit: combined_metrics
+    path "combined_${type}_diversity_metrics.csv", emit: combined_diversity
 
     script:
     def samples_list = sample_names.join(',')

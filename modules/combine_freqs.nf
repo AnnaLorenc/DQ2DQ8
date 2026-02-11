@@ -6,7 +6,7 @@ process COMBINE_FREQS {
     tuple val(type), val(sample_names), path(csv_files, stageAs: 'input_?.csv')
 
     output:
-    path "combined_${type}_diversity_metrics.csv", emit: combined_metrics
+    path "combined_${type}_freqs.csv", emit: combined_freqs
 
     script:
     def samples_list = sample_names.join(',')
@@ -36,8 +36,8 @@ process COMBINE_FREQS {
     # Combine all dataframes
     if dfs:
         combined_df = pd.concat(dfs, ignore_index=True)
-        combined_df.to_csv('combined_${type}_diversity_metrics.csv', index=False)
+        combined_df.to_csv('combined_${type}_freqs.csv', index=False)
     else:
-        pd.DataFrame().to_csv('combined_${type}_diversity_metrics.csv', index=False)
+        pd.DataFrame().to_csv('combined_${type}_freqs.csv', index=False)
     """
 }

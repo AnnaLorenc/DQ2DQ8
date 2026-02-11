@@ -1,39 +1,34 @@
 #!/usr/bin/env nextflow
 
-/// To use DSL-2 will need to include this
+
 nextflow.enable.dsl=2
 
-// =================================================================
-// main.nf is the pipeline script for a nextflow pipeline
-// Should contain the following sections:
-	// Process definitions
-    // Channel definitions
-    // Workflow structure
-	// Workflow summary logs 
+// Parameters
+params.input = './data/collated_info.csv'
+params.outdir = './results'
+params.seqs_to_remove = './data/D20210208D_1-overrepresented-sequences.txt'
 
-// Examples are included for each section. Remove them and replace
-// with project-specific code. For more information see:
-// https://www.nextflow.io/docs/latest/index.html.
-//
-// ===================================================================
 
-// Import processes or subworkflows to be run in the workflow
-// Each of these is a separate .nf script saved in modules/ directory
-// See https://training.nextflow.io/basic_training/modules/#importing-modules 
-include { check_input } from './modules/check_input'
-include { group_samples } from './modules/group_samples'
-include { generate_report } from './modules/generate_report' 
+include {INITIAL_CLEANUP_SPLIT } from './modules/read_sheet.nf'
+include { EXTRACT_DIVERSITY_METRICS as EXTRACT_DIVERSITY_METRICS_PROD } from './modules/extract_diversity_metrics.nf'
+include { EXTRACT_DIVERSITY_METRICS as EXTRACT_DIVERSITY_METRICS_NONPROD } from './modules/extract_diversity_metrics.nf'
+include { COMPUTE_FREQS as COMPUTE_FREQS_PROD} from './modules/compute_freqs_metrics.nf'
+include { COMPUTE_FREQS as COMPUTE_FREQS_NONPROD} from './modules/compute_freqs_metrics.nf'
+include{ COMBINE_DIVERSITY_METRICS as COMBINE_DIVERSITY_METRICS_PROD } from './modules/combine_diversity_metrics.nf'
+include{ COMBINE_DIVERSITY_METRICS as COMBINE_DIVERSITY_METRICS_NONPROD } from './modules/combine_diversity_metrics.nf'
+include{ COMBINE_FREQS as COMBINE_FREQS_PROD } from './modules/combine_freqs.nf'
+include{ COMBINE_FREQS as COMBINE_FREQS_NONPROD } from './modules/combine_freqs.nf'
+
 
 // Print a header for your pipeline 
 log.info """\
 
 =======================================================================================
-Name of the pipeline - nf 
+DQ2DQ8 
 =======================================================================================
 
-Created by <YOUR NAME> 
-Find documentation @ https://sydney-informatics-hub.github.io/Nextflow_DSL2_template_guide/
-Cite this pipeline @ INSERT DOI
+Created by Ania
+
 
 =======================================================================================
 Workflow run parameters 
@@ -45,68 +40,85 @@ workDir     : ${workflow.workDir}
 
 """
 
-/// Help function 
-// This is an example of how to set out the help function that 
-// will be run if run command is incorrect or missing. 
 
-def helpMessage() {
-    log.info"""
-  Usage:  nextflow run main.nf --input <samples.tsv> 
-
-  Required Arguments:
-
-  --input		Specify full path and name of sample input file.
-
-  Optional Arguments:
-
-  --outdir	Specify path to output directory. 
-	
-""".stripIndent()
-}
-
-// Define workflow structure. Include some input/runtime tests here.
-// See https://www.nextflow.io/docs/latest/dsl2.html?highlight=workflow#workflow
 workflow {
 
 // Show help message if --help is run or (||) a required parameter (input) is not provided
+		
+		log.info "seqs_to_remove: ${params.seqs_to_remove}"
+		log.info "DEBUG: params.input = '${params.input}'"  // Add this debug line
+    	log.info "DEBUG: params.input type = ${params.input?.getClass()}"  // Check type
+		// Channel 1: sample_short + genotype_short
+		channel.fromPath(params.input)
+			.splitCsv(header: true, sep: ',')
+			.map { row -> tuple(row.sample_short, row.genotype_short) }
+			.set { sample_genotype_ch }
 
-if ( params.help || params.input == false ){   
-// Invoke the help function above and exit
-	helpMessage()
-	exit 1
-	// consider adding some extra contigencies here.
-	// could validate path of all input files in list?
-	// could validate indexes for reference exist?
+		// Channel 2: sample_short + filepath
+		channel.fromPath(params.input)
+			.splitCsv(header: true, sep: ',')
+			.map { row -> tuple(row.sample_short, "${row.LOC}/${row.SAMPLE}", params.seqs_to_remove, params.outdir) }
+			.set { sample_filepath_ch}
 
-// If none of the above are a problem, then run the workflow
-} else {
+		// Use channels
+		
+		INITIAL_CLEANUP_SPLIT (sample_filepath_ch)
+
+		// INITIAL_CLEANUP_SPLIT.out.productive.view { sample, file -> "Sample ${sample}: ${file}"    }
+		EXTRACT_DIVERSITY_METRICS_PROD(INITIAL_CLEANUP_SPLIT.out.productive)
+		EXTRACT_DIVERSITY_METRICS_NONPROD(INITIAL_CLEANUP_SPLIT.out.nonproductive)
+		COMPUTE_FREQS_PROD(INITIAL_CLEANUP_SPLIT.out.productive)
+		COMPUTE_FREQS_NONPROD(INITIAL_CLEANUP_SPLIT.out.nonproductive)
+
+		// Collect productive CSV files
+		productive_data = EXTRACT_DIVERSITY_METRICS_PROD.out.diversity_metrics
+			.unique()  // Remove duplicates
+			.toList()
+			.map { items -> 
+				def samples = items.collect { it[0] }
+				def files = items.collect { it[1] }
+				tuple('productive', samples, files)
+			}
+		
+		// Collect nonproductive with deduplication
+		nonproductive_data = EXTRACT_DIVERSITY_METRICS_NONPROD.out.diversity_metrics
+			.unique()  // Remove duplicates
+			.toList()
+			.map { items -> 
+				def samples = items.collect { it[0] }
+				def files = items.collect { it[1] }
+				tuple('nonproductive', samples, files)
+			}
+		
+		// Combine each type
+		COMBINE_DIVERSITY_METRICS_PROD(productive_data)
+		COMBINE_DIVERSITY_METRICS_NONPROD(nonproductive_data)
+
+
+		// Collect productive CSV files for freqs
+		productive_freqs = COMPUTE_FREQS_PROD.out.freqs
+		.unique()  // Remove duplicates
+		.toList()
+		.map { items -> 
+			def samples = items.collect { it[0] }
+			def files = items.collect { it[1] }
+			tuple('productive', samples, files)
+		}
 	
-	// DEFINE CHANNELS 
-	// See https://www.nextflow.io/docs/latest/channel.html#channels
-	// See https://training.nextflow.io/basic_training/channels/ 
+	// Collect nonproductive with deduplication
+		nonproductive_freqs = COMPUTE_FREQS_NONPROD.out.freqs
+			.unique()  // Remove duplicates
+			.toList()
+			.map { items -> 
+				def samples = items.collect { it[0] }
+				def files = items.collect { it[1] }
+				tuple('nonproductive', samples, files)
+			}
 
-	// DEMO CODE: DELETE FOR YOUR OWN WORKFLOWS - VALIDATE INPUT SAMPLES 
-	check_input(Channel.fromPath(params.input, checkIfExists: true))
+	COMBINE_FREQS_PROD(productive_freqs)
+	COMBINE_FREQS_NONPROD(nonproductive_freqs)
 
-	// DEMO CODE: DELETE FOR YOUR OWN WORKFLOWS - EXAMPLE PROCESS - SPLIT SAMPLESHEET DEPENDING ON SEQUENCING PLATFORM
-	// See https://training.nextflow.io/basic_training/processes/#inputs 
-	// Define the input channel for this process
-	group_samples_in = check_input.out.checked_samplesheet
-
-	// Run the process with its input channel
-	group_samples(group_samples_in)
-	
-	// DEMO CODE: DELETE FOR YOUR OWN WORKFLOWS - EXAMPLE PROCESS - SUMMARISE COHORT FROM SAMPLESHEETS
-	// Define the input channel for this process using Nextflow mix operator and some groovy (the use of 'map')
-	// See: https://www.nextflow.io/docs/latest/operator.html
-	generate_report_in = group_samples.out.illumina
-                     .map { file -> tuple(file, 'Illumina') }
-                     .mix(group_samples.out.pacbio
-                          .map { file -> tuple(file, 'PacBio') })
-	
-	// DEMO CODE: DELETE FOR YOUR OWN WORKFLOWS - Run the process with its input channel
-	generate_report(generate_report_in)
-}}
+}
 
 // Print workflow execution summary 
 workflow.onComplete {

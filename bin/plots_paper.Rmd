@@ -1,0 +1,77 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Exploring the plots
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+```
+
+```{r}
+data <- read_csv("/Users/ania/Documents/DQ2DQ8/pipeline/DQ2DQ8/results/combined_freqs/combined_productive_diversity_metrics.csv")
+```
+
+```{r}
+
+
+prepare_pca_input <- function(dat, par_cols){
+  dat%>%
+  filter(param%in%c(par_cols))%>%
+  select(sample_name, group, row_fraction, param)%>%
+  pivot_wider(id_cols=sample_name, names_from=c(group), values_from = row_fraction, values_fill = 0)
+}
+
+vFamilyName_jFamilyName_cdr3Length <- prepare_pca_input(dat=data, par_cols=c("vFamilyName", "jFamilyName", "cdr3Length" )) 
+vFamilyName_jFamilyName <- prepare_pca_input(dat=data, par_cols=c("vFamilyName", "jFamilyName")) 
+vFamilyName_jGeneName_cdr3Length <- prepare_pca_input(dat=data, par_cols=c("vFamilyName", "jGeneName", "cdr3Length" ))
+vFamilyName_jFamilyName_cdr3Length_comp <- prepare_pca_input(dat=data, par_cols=c("vFamilyName-jFamilyName-cdr3Length" )) 
+```
+
+
+```{r}
+#add annotation
+anno <- read_csv("/Users/ania/Documents/DQ2DQ8/pipeline/DQ2DQ8/data/collated_info.csv")%>%
+  select(sample_name=sample_short,
+         geno=genotype_short)
+```
+```{r}
+# Set rownames and remove first column
+plot_pca_from_freq_matrix <- function(freq_mat, anno, PCX="PC1", PCY="PC2"){
+  
+  if(!("prcomp"%in%class(freq_mat))) {
+    df_mat <- freq_mat %>%
+      column_to_rownames(var = colnames(freq_mat)[1]) %>%
+      as.matrix()
+    
+    pca_res <- prcomp(df_mat, scale. = TRUE, center = TRUE)
+  }else{pca_res=freq_mat}
+  var_explained <- (pca_res$sdev^2) / sum(pca_res$sdev^2)
+  
+  pca_df <- as.data.frame(pca_res$x) %>%
+    rownames_to_column(var = "sample_name")
+  
+  pca_df <- left_join(pca_df, anno, by = "sample_name")
+  
+  p1 <- ggplot(pca_df, aes(x = !!sym(PCX), y = !!sym(PCY), color = geno)) +
+    geom_point(size = 4) +
+    stat_ellipse(type = "norm", level = 0.95) +
+    labs(
+   x = paste0(PCX, " (", round(var_explained[as.numeric(sub("PC", "", PCX))] * 100, 1), "%)"),
+      y = paste0(PCY, " (", round(var_explained[as.numeric(sub("PC", "", PCY))] * 100, 1), "%)")
+
+    ) +
+    theme_classic(base_size = 14)
+  return(list(pca_res=pca_res, plot=p1))
+}
+
+
+plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length, anno)%>%.$plot
+plot_pca_from_freq_matrix (vFamilyName_jFamilyName, anno)%>%.$plot
+plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length_comp, anno, PCX="PC1",PCY="PC2")%>%.$plot
+plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length_comp, anno, PCX="PC3",PCY="PC4")%>%.$plot
+```
+

@@ -5,7 +5,7 @@ process check_input {
 		path(input)
     
     output:
-    path("validated_samplesheet.csv") , emit: checked_samplesheet
+    path("validated_samplesheet.tsv") , emit: checked_samplesheet
 
     script: // This process runs ../bin/samplesheetchecker.sh
     // See example at: https://github.com/Sydney-Informatics-Hub/Parabricks-Genomics-nf/blob/main/bin/samplesheetchecker.py

@@ -17,18 +17,20 @@ validate_samplesheet() {
 
     # Read the header of the samplesheet
     header=$(head -n 1 $samplesheet_path)
-    expected_header="sample,fq1,fq2,platform,library,center"
+    echo "header: $header"
+    expected_header=$'SAMPLE\tLOC'
+    echo "expected header: $expected_header"
 
     # Check if the header matches the expected format
-    if [ $header != $expected_header ]; then
+    if [ "$header" != "$expected_header" ]; then
         echo "Error: Invalid header format."
         exit 1
     fi
 
     # Check if all rows are CSV and not tab-delimited
     while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ "$line" == *$'\t'* ]]; then
-            echo "Error: Found a column with a tab delimiter, expected CSV."
+        if [[ "$line" != *$'\t'* ]]; then
+            echo "Error: Found a column without a tab delimiter, expected TSV."
             exit 1
         fi
     done < <(tail -n +2 $samplesheet_path)  # Skip the header line
@@ -36,10 +38,10 @@ validate_samplesheet() {
 
 # Main script execution
 input_csv="$1"
-output_csv="validated_samplesheet.csv"
+output_tsv="validated_samplesheet.tsv"
 
 # Validate samplesheet
 validate_samplesheet "$input_csv"
 
-# If validation passes, copy the contents to validated_samplesheet.csv
-cat "$input_csv" > "$output_csv"
+# If validation passes, copy the contents to validated_samplesheet.tsv
+cat "$input_csv" > "$output_tsv"

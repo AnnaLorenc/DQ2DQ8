@@ -21,8 +21,8 @@ data <- read_csv("/Users/ania/Documents/DQ2DQ8/pipeline/DQ2DQ8/results/combined_
 prepare_pca_input <- function(dat, par_cols){
   dat%>%
   filter(param%in%c(par_cols))%>%
-  select(sample_name, group, row_fraction, param)%>%
-  pivot_wider(id_cols=sample_name, names_from=c(group), values_from = row_fraction, values_fill = 0)
+  select(sample_name, group, cell_fraction, param)%>%
+  pivot_wider(id_cols=sample_name, names_from=c(group), values_from = cell_fraction, values_fill = 0)
 }
 
 vFamilyName_jFamilyName_cdr3Length <- prepare_pca_input(dat=data, par_cols=c("vFamilyName", "jFamilyName", "cdr3Length" )) 

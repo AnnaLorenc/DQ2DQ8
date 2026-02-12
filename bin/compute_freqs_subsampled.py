@@ -18,9 +18,16 @@ def compute_frequencies(input_file, index_columns, cdr3_column):
     with gzip.open(input_file, "rt") as f:
         df = pl.read_csv(f, separator="\t")
 
+    # Check if all required columns are present
+    missing_columns = [col for col in index_columns + [cdr3_column] if col not in df.columns]
+    if missing_columns:
+        print(f"Warning: The following required columns are missing in the input file: {missing_columns}")
+        print(f"File header: {df.columns}")
+        return None
+
     df = df.with_columns(
-    pl.Series([len(s) if s is not None else 0 for s in df[cdr3_column]]).alias("cdr3_length")
-)
+        pl.Series([len(s) if s is not None else 0 for s in df[cdr3_column]]).alias("cdr3_length")
+    )
 
 
     # Define the new index columns (including the CDR3 length)
@@ -220,7 +227,7 @@ def summarize_frequencies(reshaped, output_file_summ):
     summary.write_csv(output_file_summ, separator="\t")
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Compute frequencies for each level of index columns and CDR3 length.")
@@ -230,15 +237,22 @@ if __name__ == "__main__":
     parser.add_argument("--cdr3_column", required=True, help="Name of the CDR3 column.")
 
     args = parser.parse_args()
-    output_file_summ= args.output_file
+
+    # Ensure the output directory exists
+    os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+
     result = compute_frequencies(args.input_file, args.index_columns, args.cdr3_column)
 
     # Save the reshaped result to the output file
-    result.write_csv(args.output_file, separator="\t")
+    result.write_csv(args.output_file, separator="\t", compression="gzip")
 
     # Generate the summary output file name by appending '_summ' to the base name of the output file
     base_name, ext = os.path.splitext(args.output_file)
-    output_file_summ = f"{base_name}_summ{ext}"
+    output_file_summ = f"{base_name}_summ.tsv"
 
     # Summarize the reshaped result and save to the summary file
     summarize_frequencies(result, output_file_summ)
+
+
+if __name__ == "__main__":
+    main()

@@ -16,14 +16,22 @@ data <- read_csv("/Users/ania/Documents/DQ2DQ8/pipeline/DQ2DQ8/results/combined_
 ```
 
 ```{r}
-
-
 prepare_pca_input <- function(dat, par_cols){
   dat%>%
   filter(param%in%c(par_cols))%>%
-  select(sample_name, group, cell_fraction, param)%>%
+  select(sample_name, group, param)%>%
   pivot_wider(id_cols=sample_name, names_from=c(group), values_from = cell_fraction, values_fill = 0)
 }
+
+```
+
+
+```{r}
+head(data)
+```
+
+
+```{r}
 
 vFamilyName_jFamilyName_cdr3Length <- prepare_pca_input(dat=data, par_cols=c("vFamilyName", "jFamilyName", "cdr3Length" )) 
 vFamilyName_jFamilyName <- prepare_pca_input(dat=data, par_cols=c("vFamilyName", "jFamilyName")) 
@@ -43,10 +51,13 @@ anno <- read_csv("/Users/ania/Documents/DQ2DQ8/pipeline/DQ2DQ8/data/collated_inf
 plot_pca_from_freq_matrix <- function(freq_mat, anno, PCX="PC1", PCY="PC2"){
   
   if(!("prcomp"%in%class(freq_mat))) {
+    if(is.matrix(freq_mat)){
+       df_mat <- freq_mat
+    }else{
     df_mat <- freq_mat %>%
       column_to_rownames(var = colnames(freq_mat)[1]) %>%
       as.matrix()
-    
+  }
     pca_res <- prcomp(df_mat, scale. = TRUE, center = TRUE)
   }else{pca_res=freq_mat}
   var_explained <- (pca_res$sdev^2) / sum(pca_res$sdev^2)
@@ -73,5 +84,33 @@ plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length, anno)%>%.$plot
 plot_pca_from_freq_matrix (vFamilyName_jFamilyName, anno)%>%.$plot
 plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length_comp, anno, PCX="PC1",PCY="PC2")%>%.$plot
 plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length_comp, anno, PCX="PC3",PCY="PC4")%>%.$plot
+```
+
+```{r}
+```
+
+
+```{r}
+subs<- read_tsv("/Users/ania/Documents/DQ2DQ8/pipeline/DQ2DQ8/results/combined_freqs/productive_subs_freqs.tsv.tsv")
+```
+
+
+```{r}
+head(subs)
+subs$param%>%table()
+
+data <- subs%>%filter(param%in%c("vFamilyName", "jFamilyName", "cdr3Length" ))%>%
+  select(c(group, ends_with("orig") ))%>%
+   mutate(across(where(is.numeric), ~replace_na(., 0)))
+  
+
+matrix_data <- as.matrix(data[-1])  # Exclude the first column
+rownames(matrix_data) <- data[[1]]  # Set row names from the first column
+
+# Transpose the matrix
+transposed_matrix <- t(matrix_data)
+rownames(transposed_matrix) <- gsub(pat="_orig", rep="",rownames(transposed_matrix))
+
+plot_pca_from_freq_matrix (freq_mat=transposed_matrix, anno, PCX="PC1", PCY="PC2")
 ```
 

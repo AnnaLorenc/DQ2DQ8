@@ -7,7 +7,8 @@ nextflow.enable.dsl=2
 params.input = './data/collated_info.csv'
 params.outdir = './results'
 params.seqs_to_remove = './data/D20210208D_1-overrepresented-sequences.txt'
-
+params.N = 10000 
+params.M = 25
 
 include {INITIAL_CLEANUP_SPLIT } from './modules/read_sheet.nf'
 include { EXTRACT_DIVERSITY_METRICS as EXTRACT_DIVERSITY_METRICS_PROD } from './modules/extract_diversity_metrics.nf'
@@ -18,7 +19,10 @@ include{ COMBINE_DIVERSITY_METRICS as COMBINE_DIVERSITY_METRICS_PROD } from './m
 include{ COMBINE_DIVERSITY_METRICS as COMBINE_DIVERSITY_METRICS_NONPROD } from './modules/combine_diversity_metrics.nf'
 include{ COMBINE_FREQS as COMBINE_FREQS_PROD } from './modules/combine_freqs.nf'
 include{ COMBINE_FREQS as COMBINE_FREQS_NONPROD } from './modules/combine_freqs.nf'
-
+include { MERGE_SAMPLES as MERGE_AMINO_VFAM } from './modules/merge_samples.nf'
+include { SUBSAMPLE_FROM_MERGED } from './modules/subsample_from_merged.nf'
+include {COMPUTE_FREQS_SUBSAMPLED} from './modules/compute_freqs_subsampled.nf'
+include { COMBINE_FREQS_SUBSAMPLED } from './modules/combine_freqs_subsampled.nf'
 
 // Print a header for your pipeline 
 log.info """\
@@ -117,6 +121,47 @@ workflow {
 
 	COMBINE_FREQS_PROD(productive_freqs)
 	COMBINE_FREQS_NONPROD(nonproductive_freqs)
+
+	INITIAL_CLEANUP_SPLIT.out.productive
+        .map { sample_name, file_path -> file_path }  // Extract just the files
+        .collect()  // Collect all files into a single list
+        .map { files -> 
+            tuple(files, ["aminoAcid", "vFamilyName","jGeneName"], "count (templates/reads)","productive") 
+        }
+        .set { prod_merge_ch }
+
+	// prepare one database of productive sequences
+    MERGE_AMINO_VFAM(prod_merge_ch)
+
+	//subsample Vfam, Jgene, CDR3
+	MERGE_AMINO_VFAM.out.merged
+		.map { merged_file -> tuple(merged_file, params.N, params.M, 3, "productive") } // Example values for N, M, num_index_columns .set { subsample_input_ch }
+		.set { subsample_input_ch }
+	//sample M times N sequences from each sample
+	SUBSAMPLE_FROM_MERGED( subsample_input_ch)
+
+	SUBSAMPLE_FROM_MERGED.out.subsampled
+		.map { subsampled_file -> tuple(subsampled_file) } 
+		.set { compute_freqs_subsampled_input_ch }
+
+	SUBSAMPLE_FROM_MERGED.out.subsampled
+		.flatten()
+    	.map { subsampled_file -> 
+        def sample_name = subsampled_file.baseName.replaceAll(/_subsampled\.tsv$/, '')
+        tuple(subsampled_file, sample_name, "productive", "aminoAcid", [ "vFamilyName","jGeneName"])
+    } 
+    .set { compute_freqs_subsampled_input_ch }
+	
+	COMPUTE_FREQS_SUBSAMPLED(compute_freqs_subsampled_input_ch)
+
+	COMPUTE_FREQS_SUBSAMPLED.out.subsampled
+		.map { big_file, summ_file -> summ_file}
+		.collect()
+		.map{ files ->
+		tuple(files,  "productive_subs_freqs.tsv") }
+		.set { combine_freqs_subsampled_input_ch  }	
+
+	COMBINE_FREQS_SUBSAMPLED(combine_freqs_subsampled_input_ch)
 
 }
 

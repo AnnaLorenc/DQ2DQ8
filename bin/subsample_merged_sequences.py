@@ -25,7 +25,7 @@ def subsample_merged_sequences(input_file, output_dir, N, M, num_index_columns):
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
-    for sample in sample_columns[0:1]:
+    for sample in sample_columns:
         # Filter rows where the sample column > 0
         filtered_df = df.filter(pl.col(sample) > 0)
 

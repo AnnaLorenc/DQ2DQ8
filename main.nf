@@ -9,6 +9,7 @@ params.outdir = './results'
 params.seqs_to_remove = './data/D20210208D_1-overrepresented-sequences.txt'
 params.N = 10000 
 params.M = 25
+params.index_columns = ["aminoAcid", "vFamilyName", "jGeneName"] //to join samples in merging
 
 include {INITIAL_CLEANUP_SPLIT } from './modules/read_sheet.nf'
 include { EXTRACT_DIVERSITY_METRICS as EXTRACT_DIVERSITY_METRICS_PROD } from './modules/extract_diversity_metrics.nf'
@@ -23,6 +24,9 @@ include { MERGE_SAMPLES as MERGE_AMINO_VFAM } from './modules/merge_samples.nf'
 include { SUBSAMPLE_FROM_MERGED } from './modules/subsample_from_merged.nf'
 include {COMPUTE_FREQS_SUBSAMPLED} from './modules/compute_freqs_subsampled.nf'
 include { COMBINE_FREQS_SUBSAMPLED } from './modules/combine_freqs_subsampled.nf'
+include {COMPUTE_OVERLAPS} from './modules/compute_overlaps.nf'
+include {COMPUTE_OVERLAPS_SUBSAMPLED} from './modules/compute_overlaps_subsampled.nf'
+
 
 // Print a header for your pipeline 
 log.info """\
@@ -126,7 +130,7 @@ workflow {
         .map { sample_name, file_path -> file_path }  // Extract just the files
         .collect()  // Collect all files into a single list
         .map { files -> 
-            tuple(files, ["aminoAcid", "vFamilyName","jGeneName"], "count (templates/reads)","productive") 
+            tuple(files, params.index_columns, "count (templates/reads)","productive") 
         }
         .set { prod_merge_ch }
 
@@ -140,11 +144,9 @@ workflow {
 	//sample M times N sequences from each sample
 	SUBSAMPLE_FROM_MERGED( subsample_input_ch)
 
-	SUBSAMPLE_FROM_MERGED.out.subsampled
-		.map { subsampled_file -> tuple(subsampled_file) } 
-		.set { compute_freqs_subsampled_input_ch }
 
-	SUBSAMPLE_FROM_MERGED.out.subsampled
+
+	SUBSAMPLE_FROM_MERGED.out.subsampled_files
 		.flatten()
     	.map { subsampled_file -> 
         def sample_name = subsampled_file.baseName.replaceAll(/_subsampled\.tsv$/, '')
@@ -163,7 +165,49 @@ workflow {
 
 	COMBINE_FREQS_SUBSAMPLED(combine_freqs_subsampled_input_ch)
 
+	def first_column_with_sample_in_merged = params.index_columns.size()
+
+	MERGE_AMINO_VFAM.out.merged
+		.map { merged_file -> tuple(merged_file,  "productive", first_column_with_sample_in_merged) }
+		.set { compute_overlaps_input_ch }
+		
+	COMPUTE_OVERLAPS(compute_overlaps_input_ch) 
+
+	// Collect both outputs together
+	SUBSAMPLE_FROM_MERGED.out.sample_names
+		.collect()
+		.combine(SUBSAMPLE_FROM_MERGED.out.subsampled_dir.collect())
+		.map { sample_names, subsampled_dirs -> 
+			tuple(sample_names, subsampled_dirs,  "productive")  // Assuming single files
+		}
+	.set { compute_overlaps_subsampled_input_ch }
+	COMPUTE_OVERLAPS_SUBSAMPLED(compute_overlaps_subsampled_input_ch  )
+
+
+	
+
+    //     parser.add_argument("--samples_file", required=True)
+    // parser.add_argument("--subsample_dir", required=True)
+    // parser.add_argument("--output_file", required=True)
+    // parser.add_argument(
+    //     "--id_columns",
+    //     nargs="+",
+    //     default=["aminoAcid", "vFamilyName", "jGeneName"],
+    //     help="Columns to use for building clonotype IDs (default: aminoAcid, vFamilyName, jGeneName)",
+    // )
+
+
+
+
+
+
+
 }
+
+
+
+
+
 
 // Print workflow execution summary 
 workflow.onComplete {

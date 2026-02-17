@@ -47,6 +47,10 @@ anno <- read_csv("/Users/ania/Documents/DQ2DQ8/pipeline/DQ2DQ8/data/collated_inf
          geno=genotype_short)
 ```
 ```{r}
+```
+
+
+```{r}
 # Set rownames and remove first column
 plot_pca_from_freq_matrix <- function(freq_mat, anno, PCX="PC1", PCY="PC2"){
   
@@ -86,6 +90,10 @@ plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length_comp, anno, PCX="P
 plot_pca_from_freq_matrix (vFamilyName_jFamilyName_cdr3Length_comp, anno, PCX="PC3",PCY="PC4")%>%.$plot
 ```
 
+
+```{r}
+```
+
 ```{r}
 ```
 
@@ -111,6 +119,23 @@ rownames(matrix_data) <- data[[1]]  # Set row names from the first column
 transposed_matrix <- t(matrix_data)
 rownames(transposed_matrix) <- gsub(pat="_orig", rep="",rownames(transposed_matrix))
 
-plot_pca_from_freq_matrix (freq_mat=transposed_matrix, anno, PCX="PC1", PCY="PC2")
+plot_pca_from_freq_matrix (freq_mat=transposed_matrix, anno, PCX="PC3", PCY="PC4")
+```
+
+
+```{r}
+data <- subs%>%filter(param%in%c("vFamilyName", "jFamilyName", "cdr3Length" ))%>%
+  select(c(group, ends_with("subs") ))%>%
+   mutate(across(where(is.numeric), ~replace_na(., 0)))
+  
+
+matrix_data <- as.matrix(data[-1])  # Exclude the first column
+rownames(matrix_data) <- data[[1]]  # Set row names from the first column
+
+# Transpose the matrix
+transposed_matrix <- t(matrix_data)
+rownames(transposed_matrix) <- gsub(pat="_subs", rep="",rownames(transposed_matrix))
+
+plot_pca_from_freq_matrix (freq_mat=transposed_matrix, anno, PCX="PC3", PCY="PC4")
 ```
 

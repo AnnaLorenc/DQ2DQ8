@@ -2,15 +2,14 @@ process SUBSAMPLE_FROM_MERGED {
     tag "subsampling ${type}"
     publishDir "${params.outdir}/subsampled/", mode: 'copy'
 
-
-
     input:
     tuple val(input_file), val(N), val(M), val(num_index_columns), val(type)
 
     output:
-    path "${type}/*_subsampled.tsv.gz", emit: subsampled
+    path "${type}/*_subsampled.tsv.gz", emit: subsampled_files
+    path "sample_list.txt", emit: sample_names
+    path "${type}/", emit: subsampled_dir
    
-
     script:
     """
     python ${projectDir}/bin/subsample_merged_sequences.py \
@@ -18,7 +17,12 @@ process SUBSAMPLE_FROM_MERGED {
         --output_dir ${type} \
         --N  ${N} \
         --M ${M} \
-        --num_index_columns ${num_index_columns} \
+        --num_index_columns ${num_index_columns}
+    
+    # Extract sample names and create a list
+    for file in ${type}/*_subsampled.tsv.gz; do
+        basename "\$file" _subsampled.tsv.gz
+    done > sample_list.txt
     """
 }
 

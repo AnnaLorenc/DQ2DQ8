@@ -210,7 +210,7 @@ workflow {
 
 	// Combine the frequency median files
 	def index_cols = params.imgt_index_columns ?: ["IMGT_position", "AA", "aminoAcid_length"]
-	COMBINE_IMGT_AA_FREQS_MED(freq_med_files_ch, index_cols,"")
+	COMBINE_IMGT_AA_FREQS_MED(freq_med_files_ch, index_cols,"_full")
 
 	COMPUTE_IMGT_AA_FREQS_SUBS.out.aa_imgt_freq_WL_med
 	.map { sample_name, file -> file }  // Extract just the files

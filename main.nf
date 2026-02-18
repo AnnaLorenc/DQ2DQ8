@@ -10,6 +10,8 @@ params.seqs_to_remove = './data/D20210208D_1-overrepresented-sequences.txt'
 params.N = 10000 
 params.M = 25
 params.index_columns = ["aminoAcid", "vFamilyName", "jGeneName"] //to join samples in merging
+params.min_len = 8
+params.max_len = 25	// CDR3 length filters for IMGT freqs
 
 include {INITIAL_CLEANUP_SPLIT } from './modules/read_sheet.nf'
 include { EXTRACT_DIVERSITY_METRICS as EXTRACT_DIVERSITY_METRICS_PROD } from './modules/extract_diversity_metrics.nf'
@@ -26,7 +28,9 @@ include {COMPUTE_FREQS_SUBSAMPLED} from './modules/compute_freqs_subsampled.nf'
 include { COMBINE_FREQS_SUBSAMPLED } from './modules/combine_freqs_subsampled.nf'
 include {COMPUTE_OVERLAPS} from './modules/compute_overlaps.nf'
 include {COMPUTE_OVERLAPS_SUBSAMPLED} from './modules/compute_overlaps_subsampled.nf'
-
+include {COMPUTE_IMGT_AA_FREQS_SUBS} from './modules/imgt_aa_freqs_subsampled.nf'
+include { COMBINE_IMGT_AA_FREQS_MED } from './modules/combine_IMGT_AA_freqs.nf'
+include { COMBINE_IMGT_AA_FREQS_MED as COMBINE_IMGT_AA_FREQS_MED_WL } from './modules/combine_IMGT_AA_freqs.nf'
 
 // Print a header for your pipeline 
 log.info """\
@@ -173,7 +177,7 @@ workflow {
 		
 	COMPUTE_OVERLAPS(compute_overlaps_input_ch) 
 
-	// Collect both outputs together
+	// Coompute overlaps on subsampled
 	SUBSAMPLE_FROM_MERGED.out.sample_names
 		.collect()
 		.combine(SUBSAMPLE_FROM_MERGED.out.subsampled_dir.collect())
@@ -183,12 +187,38 @@ workflow {
 	.set { compute_overlaps_subsampled_input_ch }
 	COMPUTE_OVERLAPS_SUBSAMPLED(compute_overlaps_subsampled_input_ch  )
 
+	//----aminoacid usage in CDR3
+	SUBSAMPLE_FROM_MERGED.out.subsampled_files
+		.flatten() 
+		.map { subsampled_file -> 
+		// println "Processing file: ${subsampled_file}"
+        // println "File name: ${subsampled_file.name}"
+        // println "Base name: ${subsampled_file.baseName}"
+		def sample_name = subsampled_file.baseName.replaceAll(/_subsampled\.tsv$/, '')
+		// println "Extracted sample name: ${sample_name}"
+		tuple(subsampled_file, sample_name, "productive", params.min_len, params.max_len)
+	} 
+	.set { compute_imgt_freqs_subsampled_input_ch }	
 
+	COMPUTE_IMGT_AA_FREQS_SUBS(compute_imgt_freqs_subsampled_input_ch)
 
+	// Collect all aa_imgt_freq_full_med files
+	COMPUTE_IMGT_AA_FREQS_SUBS.out.aa_imgt_freq_full_med
+		.map { sample_name, file -> file }  // Extract just the files
+		.collect()  // Collect all files into a single list
+		.set { freq_med_files_ch }
 
+	// Combine the frequency median files
+	def index_cols = params.imgt_index_columns ?: ["IMGT_position", "AA", "aminoAcid_length"]
+	COMBINE_IMGT_AA_FREQS_MED(freq_med_files_ch, index_cols,"")
 
+	COMPUTE_IMGT_AA_FREQS_SUBS.out.aa_imgt_freq_WL_med
+	.map { sample_name, file -> file }  // Extract just the files
+	.collect()  // Collect all files into a single list
+	.set { freq_med_WL_files_ch }
 
-
+	def index_cols_WL = params.imgt_index_columns_WL ?: ["IMGT_position", "AA"]
+	COMBINE_IMGT_AA_FREQS_MED_WL(freq_med_WL_files_ch, index_cols_WL, "_WL")
 
 }
 

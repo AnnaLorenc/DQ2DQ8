@@ -43,22 +43,23 @@ The following computations are perforemd in 2 versions:
 For each AA-pos-(length), counts and frequencies per sample are computed. This is on the level of sequences (rows) and cells (counts). This is performed for the original sequences as well as for subsamples. Finaly, for subsampled samples, median from subsamples is computed.
 The resulting data is collected in the files corresponding to the source sequences and way it was computed:
 
-- `comb_aa_imgt_full_orig_counts.tsv`
-- `comb_aa_imgt_full_orig_counts_freq.tsv`
-- `comb_aa_imgt_full_orig_rows.tsv`
-- `comb_aa_imgt_full_orig_rows_freq.tsv`
-- `comb_aa_imgt_full_subs_counts.tsv`
-- `comb_aa_imgt_full_subs_counts_freq.tsv`
-- `comb_aa_imgt_full_subs_rows.tsv`
-- `comb_aa_imgt_full_subs_rows_freq.tsv`
-- `comb_aa_imgt_WL_orig_counts.tsv`
-- `comb_aa_imgt_WL_orig_counts_freq.tsv`
-- `comb_aa_imgt_WL_orig_rows.tsv`
-- `comb_aa_imgt_WL_orig_rows_freq.tsv`
-- `comb_aa_imgt_WL_subs_counts.tsv`
-- `comb_aa_imgt_WL_subs_counts_freq.tsv`
-- `comb_aa_imgt_WL_subs_rows.tsv`
-- `comb_aa_imgt_WL_subs_rows_freq.tsv`
+`comb_aa_imgt_full_orig_counts.tsv`<br>
+`comb_aa_imgt_full_orig_counts_freq.tsv`<br>
+`comb_aa_imgt_full_orig_rows.tsv`<br>
+`comb_aa_imgt_full_orig_rows_freq.tsv`<br>
+`comb_aa_imgt_full_subs_counts.tsv`<br>
+`comb_aa_imgt_full_subs_counts_freq.tsv`<br>
+`comb_aa_imgt_full_subs_rows.tsv`<br>
+`comb_aa_imgt_full_subs_rows_freq.tsv`<br>
+`comb_aa_imgt_WL_orig_counts.tsv`<br>
+`comb_aa_imgt_WL_orig_counts_freq.tsv`<br>
+`comb_aa_imgt_WL_orig_rows.tsv`<br>
+`comb_aa_imgt_WL_orig_rows_freq.tsv`<br>
+`comb_aa_imgt_WL_subs_counts.tsv`<br>
+`comb_aa_imgt_WL_subs_counts_freq.tsv`<br>
+`comb_aa_imgt_WL_subs_rows.tsv`<br>
+`comb_aa_imgt_WL_subs_rows_freq.tsv`
+
 
 The main  files to use for modelling are: `comb_aa_imgt_full_subs_rows_freq.tsv, comb_aa_imgt_WL_subs_rows_freq.tsv`.
 

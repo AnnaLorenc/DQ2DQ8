@@ -62,6 +62,27 @@ The resulting data is collected in the files corresponding to the source sequenc
 
 The main  files to use for modelling are: `comb_aa_imgt_full_subs_rows_freq.tsv, comb_aa_imgt_WL_subs_rows_freq.tsv`.
 
+### Statistical testing of under/overrepresentation
+Performed with/without length.
+#### Prep
+File with:
+- `sample`: sample ID / column name from the wide table (kept for traceability, not used in modelling).
+- `length`: CDR3 amino-acid length (cast to integer for grouping)/absent when length not included
+- `AA`: amino acid.
+- `IMGT_position`: IMGT position label; kept as string to allow values like `111A`.
+- `patient`: short patient ID (e.g. F16018).
+- `cells`: E / N etc. (used as the first grouping key, so AgXP/naive are tested separately).
+- `value`: the outcome to test (e.g. frequency from the `_subs_rows_freq` table).
+- `genotype`: pre-recoded genotype label (e.g. `hoDQ2`, `hoDQ8`, `heDQ2DQ8`).
+Input is `comb_aa_imgt_full_subs_rows_freq.tsv` and `comb_aa_imgt_full_subs_counts.tsv` (to use as a filter, keeping only rows with at least X individuals with at least Y counts)
+
+#### Testing 
+Tests are a t-test for genotypes comparison, I report also Cohen's D, group means and N, variance. Results for both genotype comparisons are collated side by side (eo and oo suffixes), for quick view whether it is eo specific.
+For cell type comparisons, it is a paired test - within each genotype group and also all samples together.
+
+
+
+
 
 ## User guide 
 

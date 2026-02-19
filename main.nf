@@ -12,6 +12,9 @@ params.M = 25
 params.index_columns = ["aminoAcid", "vFamilyName", "jGeneName"] //to join samples in merging
 params.min_len = 8
 params.max_len = 25	// CDR3 length filters for IMGT freqs
+params.annotation_file = './data/collated_info.csv'
+params.min_non_index = 5
+params.min_value = 1
 
 include {INITIAL_CLEANUP_SPLIT } from './modules/read_sheet.nf'
 include { EXTRACT_DIVERSITY_METRICS as EXTRACT_DIVERSITY_METRICS_PROD } from './modules/extract_diversity_metrics.nf'
@@ -31,6 +34,10 @@ include {COMPUTE_OVERLAPS_SUBSAMPLED} from './modules/compute_overlaps_subsample
 include {COMPUTE_IMGT_AA_FREQS_SUBS} from './modules/imgt_aa_freqs_subsampled.nf'
 include { COMBINE_IMGT_AA_FREQS_MED } from './modules/combine_IMGT_AA_freqs.nf'
 include { COMBINE_IMGT_AA_FREQS_MED as COMBINE_IMGT_AA_FREQS_MED_WL } from './modules/combine_IMGT_AA_freqs.nf'
+include {PREP_COMB_IMGT_TEST } from './modules/prep_comb_IMGT_test.nf'
+include {PREP_COMB_IMGT_TEST as PREP_COMB_IMGT_TEST_WL } from './modules/prep_comb_IMGT_test.nf'
+include {RUN_IMGT_TEST } from './modules/run_imgt_test.nf'
+include {RUN_IMGT_TEST as RUN_IMGT_TEST_WL } from './modules/run_imgt_test.nf'
 
 // Print a header for your pipeline 
 log.info """\
@@ -220,7 +227,22 @@ workflow {
 	def index_cols_WL = params.imgt_index_columns_WL ?: ["IMGT_position", "AA"]
 	COMBINE_IMGT_AA_FREQS_MED_WL(freq_med_WL_files_ch, index_cols_WL, "_WL")
 
-}
+    def combined = COMBINE_IMGT_AA_FREQS_MED.out.combined_subs_rows_freq
+        .combine(COMBINE_IMGT_AA_FREQS_MED.out.combined_subs_counts)
+
+	PREP_COMB_IMGT_TEST(combined, index_cols, params.annotation_file,  params.min_non_index, params.min_value)
+	
+	def index_cols1 = params.imgt_index_columns ?: ["IMGT_position", "AA", "length"]
+	RUN_IMGT_TEST(PREP_COMB_IMGT_TEST.out.imgt_test_input, index_cols1)
+
+	def combined_WL = COMBINE_IMGT_AA_FREQS_MED_WL.out.combined_subs_rows_freq
+        .combine(COMBINE_IMGT_AA_FREQS_MED_WL.out.combined_subs_counts)
+
+	PREP_COMB_IMGT_TEST_WL(combined_WL, index_cols_WL, params.annotation_file,  params.min_non_index, params.min_value)
+	
+	RUN_IMGT_TEST_WL(PREP_COMB_IMGT_TEST_WL.out.imgt_test_input, index_cols_WL)
+
+	}
 
 
 
